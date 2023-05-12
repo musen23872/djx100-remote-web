@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>DJ-X100 リモートコントロール（非公式サンプル・オンライン版）</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="app">
+        <div class="panel">
+            <div class="title-panel">
+                <h1 class="title">DJ-X100<br>リモートコントロール<br>（非公式サンプル・オンライン版）</h1>
+            </div>
+            <button class="connect-button" @click="toggleConnection">
+                {{ isConnected ? "切断" : "接続" }}
+            </button>
+            <div class="connection-status" v-if="connectionStatus">
+                {{ connectionStatus }}
+            </div>
+            <div class="connection-status error" v-if="connectionError">
+                {{ connectionError }}
+            </div>
+            <div class="remote-control">
+                <div class="controls">
+                    <div class="button control-button" v-for="button in controlButtons" :key="button.id"
+                        @mousedown="startHold(buttons.id, button.keycode)" @mouseup="stopHold" @mouseleave="stopHold"
+                        @click="clickButton(buttons.id, button.keycode)" v-html="button.text">
+                    </div>
+                </div>
+                <div class="keypad">
+                    <div class="button" v-for="button in buttons" :key="button.id"
+                        @mousedown="startHold(button.id, button.keycode)" @mouseup="stopHold" @mouseleave="stopHold"
+                        @click="clickButton(buttons.id, button.keycode)" v-html="button.text">
+                    </div>
+                </div>
+                <div class="slider-container">
+                    <div class="slider-wrapper">
+                        <h2 class="slider-title">SQL</h2>
+                        <input type="range" min="0" max="32" v-model="sqlValue" class="slider"
+                            @change="handleSQLSliderChange">
+                        <div class="selected-value">{{ sqlValue }}</div>
+                    </div>
+                    <div class="slider-wrapper">
+                        <h2 class="slider-title">VOL</h2>
+                        <input type="range" min="0" max="32" v-model="volumeValue" class="slider"
+                            @change="handleVolumeSliderChange">
+                        <div class="selected-value">{{ volumeValue }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="usage">
+            <h2>使い方</h2>
+            <ol>
+                <li>Alinco DJ-X100をUSBで接続し、接続ボタンを押してください。</li>
+                <li>シリアルポート選択のポップアップが現れるので、リモートコントロールするDJ-X100を選択してください。</li>
+                <li>長押しは0.6秒以上タップまたは長押ししてください。FUNCキー長押しでキーロックの動作確認ができます</li>
+            </ol>
+            <h2>既知の問題</h2>
+            <ul>
+                <li>接続後、まれにVOLを取得できないことがある</li>
+                <li>SQL値が取得できないため、接続後の値が不正確</li>
+                <li>本体側で変更したVOL,SQLの値はアプリ上で反映されない</li>
+                <li>ダイヤル操作ができない</li>
+            </ul>
+            <h2>免責事項</h2>
+            <span>当WEBアプリは、「現状のまま」で、明示であるか暗黙であるかを問わず、何らの保証もなく提供されます。ここでいう保証とは、商品性、特定の目的への適合性、および権利非侵害についての保証も含みますが、それに限定されるものではありません。 作者または著作権者は、契約行為、不法行為、またはそれ以外であろうと、ソフトウェアに起因または関連し、あるいはソフトウェアの使用またはその他の扱いによって生じる一切の請求、損害、その他の義務について何らの責任も負わないものとします。</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                buttons: [
+                    { id: 1, keycode: "1", text: "1" },
+                    { id: 2, keycode: "2", text: "2" },
+                    { id: 3, keycode: "3", text: "3" },
+                    { id: 4, keycode: "MODE", text: "MODE<br>CONFIG" },
+                    { id: 5, keycode: "4", text: "4" },
+                    { id: 6, keycode: "5", text: "5" },
+                    { id: 7, keycode: "6", text: "6" },
+                    { id: 8, keycode: "STEP", text: "STEP<br>MHz" },
+                    { id: 9, keycode: "7", text: "7" },
+                    { id: 10, keycode: "8", text: "8" },
+                    { id: 11, keycode: "9", text: "9" },
+                    { id: 12, keycode: "V/M", text: "V/M<br>MW" },
+                    { id: 13, keycode: "0", text: "0" },
+                    { id: 14, keycode: "SKIP", text: "SKIP<br>." },
+                    { id: 15, keycode: "SET", text: "SET<br><-|" },
+                    { id: 16, keycode: "SCAN", text: "SCAN<br>PROG" },
+                ],
+                controlButtons: [
+                    { id: 17, keycode: "MONI", text: "MONI<br>SQL" },
+                    { id: 18, keycode: "FUNC", text: "FUNC<br>LOCK" },
+                ],
+                holdTimer: null,
+                isLongPress: false,
+                sqlValue: 10,
+                volumeValue: 5,
+                connectionStatus: null,
+                connectionError: null,
+                isConnected: false,
+            },
+            methods: {
+                async toggleConnection() {
+                    if (this.isConnected) {
+                        await port.close()
+                            .then(() => {
+                                port = null;
+                                console.log("COM port is now closed!");
+                                this.isConnected = false;
+                                this.connectionStatus = null;
+                            })
+                            .catch(error => {
+                                console.error("Error closing port: ", error);
+                            });
+
+                    } else {
+                        this.connectionError = null;
+
+                        const filters = [
+                            { usbVendorId: 0x3614, usbProductId: 0xD001 }
+                        ];
+                        try {
+                            const selectedPort = await navigator.serial.requestPort({ filters });
+                            port = selectedPort;
+                            await port.open({ baudRate: 115200 });
+                            console.log("COM port is now open!");
+                            this.connectionStatus = "接続中";
+                            this.isConnected = true;
+                        } catch (error) {
+                            console.log("Error opening port: ", error);
+                            this.connectionError = "接続に失敗しました";
+                        }
+                        // 現在の本体ボリュームを取得
+                        const result = await this.sendData("AL~VOL\r");
+                        this.volumeValue = parseInt(result);
+                    }
+                },
+                async sendData(data) {
+                    if (this.isConnected) {
+                        const writer = port.writable.getWriter();
+                        const reader = port.readable.getReader();
+                        try {
+                            await writer.write(new TextEncoder().encode(data));
+                            console.log("Data sent successfully!");
+                            const { value, done } = await reader.read();
+
+                            if (!done) {
+                                const result = new TextDecoder().decode(value).trim();
+                                // リザルトを処理する
+                                console.log(result);
+                                return result;
+                            }
+                        } catch (error) {
+                            console.error("Error sending data: ", error);
+                        } finally {
+                            writer.releaseLock();
+                            reader.releaseLock();
+                        }
+                    }
+                },
+                async startHold(id, keycode) {
+                    this.isLongPress = false;
+                    this.holdTimer = setTimeout(async () => {
+                        this.isLongPress = true;
+                        const data = "AL~KEYL" + keycode + "\r";
+                        await this.sendData(data);
+                    }, 600);
+                },
+                stopHold() {
+                    clearTimeout(this.holdTimer);
+                },
+                async clickButton(id, keycode) {
+                    if (!this.isLongPress) {
+                        const data = "AL~KEYS" + keycode + "\r";
+                        await this.sendData(data);
+                    }
+                },
+                async handleSQLSliderChange() {
+                    console.log("Change SQL Value: ", this.sqlValue);
+                    const data = "AL~SQL" + this.sqlValue.toString().padStart(2, '0') + "\r";
+                    await this.sendData(data);
+                },
+
+                async handleVolumeSliderChange() {
+                    console.log("Change Volume value:", this.volumeValue);
+                    const data = "AL~VOL" + this.volumeValue.toString().padStart(2, '0') + "\r";
+                    await this.sendData(data);
+                },
+            }
+        })
+    </script>
+</body>
+
+</html>

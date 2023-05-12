@@ -1,0 +1,92 @@
+#app {
+  display: flex;
+  flex-direction: column;
+  /* justify-content: center; */
+  align-items: center;
+  height: 100vh;
+}
+
+.title-panel {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.title {
+  margin: 0;
+}
+
+.panel {
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+.connect-button {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.remote-control {
+  display: flex;
+}
+
+.controls {
+  margin-right: 20px;
+}
+
+.button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50px;
+  width: 70px;
+  border: 1px solid #ccc;
+  margin: 5px;
+  user-select: none;
+  cursor: pointer;
+  text-align: center;
+}
+
+.keypad {
+  display: flex;
+  flex-wrap: wrap;
+  width: 350px;
+}
+
+.control-button {
+  height: 100px;
+}
+
+.slider-wrapper {
+  margin-bottom: 20px;
+}
+
+.slider-title {
+  margin-bottom: 5px;
+}
+
+.slider {
+  width: 100%;
+}
+
+.selected-value {
+  text-align: center;
+  margin-top: 5px;
+  font-weight: bold;
+}
+
+.connection-status {
+  margin-top: 10px;
+  font-weight: bold;
+  color: blue;
+}
+
+.connection-status.error {
+  color: red;
+}
+
+.usage {
+  width: 800px;
+}
