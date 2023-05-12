@@ -128,7 +128,7 @@
                         try {
                             const selectedPort = await navigator.serial.requestPort({ filters });
                             port = selectedPort;
-                            await port.open({ baudRate: 115200 });
+                            await port.open({ baudRate: 9600 });
                             console.log("COM port is now open!");
                             this.connectionStatus = "接続中";
                             this.isConnected = true;
